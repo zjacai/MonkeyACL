@@ -31,6 +31,8 @@
 ✅ **零配置启动** — 单文件运行，参数即配置。  
 ✅ **动态授权** — API 调用即授权当前 IP 临时访问指定端口。  
 ✅ **自动回收** — 无需手动清理，失效规则智能移除。  
+✅ **跨平台** — 自动识别 Linux（firewalld / ufw / iptables / nftables）与 Windows Firewall。  
+✅ **自动证书** — 未提供 SSL 证书时自动签发自签名证书并启用 HTTPS。  
 ✅ **平台无关** — 本地防火墙控制，无需依赖云平台 API。  
 ✅ **高度可集成** — 适配 iPhone Shortcuts、自动化脚本等工具，实现极简体验。
 
@@ -44,76 +46,162 @@ git clone https://github.com/Scorcsoft/MonkeyACL.git
 cd MonkeyACL
 ```
 
-### 2️⃣ 准备 SSL 证书  
-Monkey ACL的 API 服务要求一个 .pem 格式的 SSL 证书，以便启用 HTTPS 连接。你可以购买一个商用证书、从 Let's encrypt 免费签发一个证书。
+### 2️⃣ SSL 证书（可选）
+API 服务始终使用 HTTPS。未传入 `--cert` / `--key` 时，程序会自动生成自签名证书（`monkeyacl-auto.pem` / `monkeyacl-auto.key`）并直接使用。
 
-也可以使用以下命令来自己签发一个证书：
+也可以自行提供证书：购买商用证书、用 Let's Encrypt 签发，或本地生成：
 
 ```bash
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
 ```
 
-这将在当前目录生成一个 cert.pem 和 key.pem ，然后在 Monkey ACL 使用它。这个证书的有效期是 365 天。
+自签名证书调用 API 时请使用 `curl -k`。
 
-### 3️⃣ 启动服务  
-> 当前版本支持 **CentOS 7**，其他系统版本后续支持。
+### 3️⃣ 启动参数
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--auth` | 是 | API 访问密钥。长度必须大于 16，且同时包含大写字母、小写字母和数字 |
+| `--port` | 是 | API 服务监听端口，请确保云安全组和本机防火墙已放通此端口 |
+| `--url` | 是 | API 路径，建议使用随机字符串，避免被扫描到 |
+| `--cert` | 否 | SSL 证书文件路径，pem 格式。需与 `--key` 一起提供 |
+| `--key` | 否 | SSL 私钥文件路径，pem 格式。需与 `--cert` 一起提供 |
+| `--interval` | 否 | 空闲检测间隔，单位秒，默认 `600`（10 分钟）。该 IP 断开后，经过此间隔会被回收 |
+| `-h` / `--help` | 否 | 显示帮助信息 |
+
+Linux 需要 root，Windows 需要以管理员身份运行。Windows CMD 下参数不要包单引号。
+
+### 4️⃣ Linux 启动
 
 ```bash
-sudo python3 monkeyACL-centos7.py --auth=<your-key> --port=<api-port> --url=<api-url> --cert=<path_to_cert_file> --key=<path_to_key_file>
+sudo python3 monkeyACL.py --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy
 ```
-> 📝 **root 权限必需**：防火墙规则管理需系统管理员权限。
 
-| 参数    | 说明                          |
-|-------|-----------------------------|
-| --auth | API 访问密钥，API 请求需携带此密钥       |
-| --port | API 服务监听端口，请确保安全组和防火墙已放通此端口 |
-| --url | API 服务 URL，建议使用随机字符串，避免被扫描到 |
-| --cert | SSL 证书文件路径，需要 pem 格式        |
-| --key | SSL 秘钥文件路径，需要 pem 格式        |
+指定已有证书：
+
+```bash
+sudo python3 monkeyACL.py --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy --cert=cert.pem --key=key.pem
+```
+
+### 5️⃣ Windows 启动
+
+管理员 CMD / PowerShell：
+
+```bat
+python monkeyACL.py --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy
+```
+
+指定已有证书：
+
+```bat
+python monkeyACL.py --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy --cert=cert.pem --key=key.pem
+```
 
 启动成功示例：
 ```text
-[root@localhost monkeyACL]# python3 monkeyACL-centos7.py --auth='Geh8uw' --port=3389 --url='vefhuwbyuvftyuvwegfyugvy' --cert=cert.pem --key=key.pem
-
-                        _                       _____ _      
-                       | |                /\   / ____| |     
-  _ __ ___   ___  _ __ | | _____ _   _   /  \ | |    | |     
- | '_ ` _ \ / _ \| '_ \| |/ / _ \ | | | / /\ \| |    | |     
- | | | | | | (_) | | | |   <  __/ |_| |/ ____ \ |____| |____ 
- |_| |_| |_|\___/|_| |_|_|\_\___|\___ /_/    \_\_____|______|
-                                  __/ |                      
-                                 |___/                       
-
-A lightweight, secure tool for dynamic firewall authorization
-Designed for temporary access control and on-demand port opening via API automation.
-
-Github: https://github.com/Scorcsoft/monkeyACL
-
-[i] MonkeyACL is running at: https://0.0.0.0:3389/vefhuwbyuvftyuvwegfyugvy
-[i] Automatically detect network connections and clean up unused rules.
-
+[i] Firewall backend: windows
+[i] MonkeyACL is running at: https://0.0.0.0:23456/vefhuwbyuvftyuvwegfyugvy
+[i] Using a self-signed SSL certificate. Call the API with curl -k.
+[i] If you cannot access the Monkey ACL API service, open the API port:
+netsh advfirewall firewall add rule name="MonkeyACL-API" dir=in action=allow protocol=TCP localport=23456
 ```
 
 ---
 
-## 🔑 获取临时访问授权
+## 🔑 调用 API 加白
 
-假设你要放行你当前的 IP 访问 服务器的 8080 端口，这样调用 API：
+请求方式：`POST`  
+地址：`https://<服务器IP>:<API端口>/<url>`  
+Body：JSON
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `auth` | 是 | 与启动参数 `--auth` 相同的密钥 |
+| `action` | 否 | `add` 加白（默认），`delete` 删除该 IP 的全部 Monkey ACL 规则 |
+| `port` | 加白时必填 | 要放行的业务端口，例如 `3389`、`22`、`8080` |
+| `protocol` | 加白时必填 | `tcp` 或 `udp` |
+| `ip` | 否 | 目标 IPv4。不传则使用本次请求的来源 IP |
+| `ttl` | 否 | 加白有效秒数。到期后即使仍在连接也会删除。不传则仅在断开后自动回收 |
+
+新规则有 3 分钟宽限期，被授权 IP 需在宽限期内连上服务器，超时未连接会被自动回收。
+
+### Linux 调用示例
+
+放行当前设备访问 3389：
+
 ```bash
-curl -X POST -k -d '{"auth": "<your_auth>","port": 8080, "protocol": "tcp"}' "https://your_server_ip:<your_port>/<your_api_url>"
+curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","port":3389,"protocol":"tcp"}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+给指定 IP 临时加白：
+
+```bash
+curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","port":3389,"protocol":"tcp","ip":"203.0.113.10"}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+### Windows 调用示例
+
+CMD / PowerShell 使用 `curl.exe`，JSON 内的双引号需要转义：
+
+放行当前设备访问 3389：
+
+```bat
+curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"port\":3389,\"protocol\":\"tcp\"}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+给指定 IP 临时加白：
+
+```bat
+curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"port\":3389,\"protocol\":\"tcp\",\"ip\":\"203.0.113.10\"}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
 ```
 
 成功响应：
 ```json
-{"success": true, "message": "Create firewalld rule success"}
+{"success": true, "message": "Create firewall rule success: 203.0.113.10 --[tcp]--> 3389", "ip": "203.0.113.10", "action": "add"}
 ```
-系统将自动添加来源 IP 到防火墙规则，临时开放访问权限。
+
+---
+
+## 🧹 删除白名单
+
+### 自动回收
+默认每隔 10 分钟检测一次：该 IP 当前没有连接到服务器时，规则自动删除。启动时可用 `--interval` 调整，例如 `--interval=1800` 为 30 分钟。加白后有 3 分钟宽限期，避免对方还没连上就被清掉。
+
+### 到期删除
+加白时带 `ttl`（秒）。到期后即使还连着也会删除。
+
+Linux：
+
+```bash
+curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","port":3389,"protocol":"tcp","ip":"203.0.113.10","ttl":3600}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+Windows：
+
+```bat
+curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"port\":3389,\"protocol\":\"tcp\",\"ip\":\"203.0.113.10\",\"ttl\":3600}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+### 立即删除
+`action` 设为 `delete`。不传 `ip` 时删除本次请求来源 IP 的规则。
+
+Linux：
+
+```bash
+curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","action":"delete","ip":"203.0.113.10"}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+Windows：
+
+```bat
+curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"action\":\"delete\",\"ip\":\"203.0.113.10\"}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
 
 ---
 
 ## 🕒 自动回收机制
 
-👉 Monkey ACL 每隔 **1 分钟** 检测一次已授权 IP 的连接状态。  
+👉 Monkey ACL 默认每隔 **10 分钟** 检测一次已授权 IP 的连接状态，可用 `--interval` 调整。  
 👉 **当某 IP 当前没有连接到服务器时，临时授权自动撤销。保障服务器端口最小暴露，无需人工干预。**  
 
 
