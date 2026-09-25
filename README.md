@@ -55,6 +55,7 @@ API 服务始终使用 HTTPS。未传入 `--cert` / `--key` 时，程序会自�
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
 ```
 
+这将在当前目录生成一个 cert.pem 和 key.pem ，然后在 Monkey ACL 使用它。这个证书的有效期是 365 天。
 自签名证书调用 API 时请使用 `curl -k`。
 
 ### 3️⃣ 启动参数
@@ -70,7 +71,9 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -node
 | `-h` / `--help` | 否 | 显示帮助信息 |
 
 Linux 需要 root，Windows 需要以管理员身份运行。Windows CMD 下参数不要包单引号。
-
+```
+python3 monkeyACL-centos7.py --auth=<your-key> --port=<api-port> --url=<api-path> --cert=<path_to_cert_file> --key=<path_to_key_file>
+```
 ### 4️⃣ Linux 启动
 
 ```bash
