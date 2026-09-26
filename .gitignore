@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.pyo
+dist/
+build/
+*.spec
+.idea/
+monkeyacl-auto.pem
+monkeyacl-auto.key
+*.exe

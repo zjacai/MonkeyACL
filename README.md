@@ -1,6 +1,7 @@
 # Monkey ACL
 
 ![License](https://img.shields.io/badge/License-MIT-blue)
+![Version](https://img.shields.io/badge/Version-1.1.0-orange)
 ![Author](https://img.shields.io/badge/Scorcsoft-8A2BE2)
 ![Firewall Manage](https://img.shields.io/badge/Firewall%20Manage-00BA98)
 
@@ -40,6 +41,29 @@
 
 ## ⚡ 快速开始
 
+当前版本：**1.1.0**
+
+可从 [GitHub Releases](https://github.com/zjacai/MonkeyACL/releases) 下载预编译二进制：
+
+| 平台 | 文件 |
+|------|------|
+| Linux x86_64 | `monkeyACL-linux-amd64` |
+| Windows x86_64 | `monkeyACL-windows-amd64.exe` |
+
+Linux：
+
+```bash
+sudo ./monkeyACL-linux-amd64 --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy
+```
+
+Windows 管理员 CMD / PowerShell：
+
+```bat
+monkeyACL-windows-amd64.exe --auth=Geh8uwAbcdefg123 --port=23456 --url=vefhuwbyuvftyuvwegfyugvy
+```
+
+源码运行仍然只需要 Python 3 标准库。
+
 ### 1️⃣ 克隆项目
 ```bash
 git clone https://github.com/Scorcsoft/MonkeyACL.git
@@ -67,7 +91,7 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -node
 | `--url` | 是 | API 路径，建议使用随机字符串，避免被扫描到 |
 | `--cert` | 否 | SSL 证书文件路径，pem 格式。需与 `--key` 一起提供 |
 | `--key` | 否 | SSL 私钥文件路径，pem 格式。需与 `--cert` 一起提供 |
-| `--interval` | 否 | 空闲检测间隔，单位秒，默认 `600`（10 分钟）。该 IP 断开后，经过此间隔会被回收 |
+| `--interval` | 否 | 空闲检测间隔，单位秒，默认 `600`（10 分钟）。该 IP 对授权端口断开后，经过此间隔会回收对应规则 |
 | `-h` / `--help` | 否 | 显示帮助信息 |
 
 Linux 需要 root，Windows 需要以管理员身份运行。Windows CMD 下参数不要包单引号。
@@ -120,13 +144,13 @@ Body：JSON
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `auth` | 是 | 与启动参数 `--auth` 相同的密钥 |
-| `action` | 否 | `add` 加白（默认），`delete` 删除该 IP 的全部 Monkey ACL 规则 |
-| `port` | 加白时必填 | 要放行的业务端口，例如 `3389`、`22`、`8080` |
-| `protocol` | 加白时必填 | `tcp` 或 `udp` |
+| `action` | 否 | `add` 加白（默认），`delete` 删除规则 |
+| `port` | 加白时必填，删除时可选 | 要放行或删除的业务端口，例如 `3389`、`22`、`8080`。删除时不传则清掉该 IP 的全部 Monkey ACL 规则 |
+| `protocol` | 加白时必填，删除时可选 | `tcp` 或 `udp`。删除时与 `port` 一起指定，只删这一条规则 |
 | `ip` | 否 | 目标 IPv4。不传则使用本次请求的来源 IP |
-| `ttl` | 否 | 加白有效秒数。到期后即使仍在连接也会删除。不传则仅在断开后自动回收 |
+| `ttl` | 否 | 加白有效秒数。到期后即使仍在连接也会删除。不传则仅在该端口断开后自动回收 |
 
-新规则有 3 分钟宽限期，被授权 IP 需在宽限期内连上服务器，超时未连接会被自动回收。
+新规则有 3 分钟宽限期，被授权 IP 需在宽限期内连上对应端口，超时未连接会被自动回收。
 
 ### Linux 调用示例
 
@@ -168,7 +192,7 @@ curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"port\":3389,\"protocol\
 ## 🧹 删除白名单
 
 ### 自动回收
-默认每隔 10 分钟检测一次：该 IP 当前没有连接到服务器时，规则自动删除。启动时可用 `--interval` 调整，例如 `--interval=1800` 为 30 分钟。加白后有 3 分钟宽限期，避免对方还没连上就被清掉。
+默认每隔 10 分钟检测一次，按 `IP + 端口 + 协议` 判断。该 IP 当前没有连到这条授权端口时，只删除这一条规则，其他端口的规则继续保留。启动时可用 `--interval` 调整，例如 `--interval=1800` 为 30 分钟。加白后有 3 分钟宽限期，避免对方还没连上就被清掉。
 
 ### 到期删除
 加白时带 `ttl`（秒）。到期后即使还连着也会删除。
@@ -186,15 +210,27 @@ curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"port\":3389,\"protocol\
 ```
 
 ### 立即删除
-`action` 设为 `delete`。不传 `ip` 时删除本次请求来源 IP 的规则。
+`action` 设为 `delete`。不传 `ip` 时删除本次请求来源 IP 的规则。带 `port` 和 `protocol` 时只删这一条；只传 `ip` 时删除该 IP 的全部 Monkey ACL 规则。
 
-Linux：
+Linux 删除指定端口：
+
+```bash
+curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","action":"delete","ip":"203.0.113.10","port":3389,"protocol":"tcp"}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+Linux 删除该 IP 的全部规则：
 
 ```bash
 curl -X POST -k -d '{"auth":"Geh8uwAbcdefg123","action":"delete","ip":"203.0.113.10"}' "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
 ```
 
-Windows：
+Windows 删除指定端口：
+
+```bat
+curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"action\":\"delete\",\"ip\":\"203.0.113.10\",\"port\":3389,\"protocol\":\"tcp\"}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
+```
+
+Windows 删除该 IP 的全部规则：
 
 ```bat
 curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"action\":\"delete\",\"ip\":\"203.0.113.10\"}" "https://your_server_ip:23456/vefhuwbyuvftyuvwegfyugvy"
@@ -204,15 +240,15 @@ curl.exe -X POST -k -d "{\"auth\":\"Geh8uwAbcdefg123\",\"action\":\"delete\",\"i
 
 ## 🕒 自动回收机制
 
-👉 Monkey ACL 默认每隔 **10 分钟** 检测一次已授权 IP 的连接状态，可用 `--interval` 调整。  
-👉 **当某 IP 当前没有连接到服务器时，临时授权自动撤销。保障服务器端口最小暴露，无需人工干预。**  
+👉 Monkey ACL 默认每隔 **10 分钟** 检测一次已授权规则的连接状态，可用 `--interval` 调整。  
+👉 **当某 IP 当前没有连到对应授权端口时，这条临时规则自动撤销。同一 IP 的其他端口规则继续保留。**
 
 
 
 ```TEXT
 
-[2025-06-20 17:48:56] The authorized IP: [180.184.***.***] is not connected to this server, its permission will be removed.
-[2025-06-20 17:48:58] Successfully removed access permission for [180.***.***.***]
+[2025-06-20 17:48:56] The authorized rule: [180.184.***.*** --[tcp]--> 3389] is not connected to this server, its permission will be removed.
+[2025-06-20 17:48:58] Successfully removed access permission for [180.184.***.*** --[tcp]--> 3389]
 
 ```
 
